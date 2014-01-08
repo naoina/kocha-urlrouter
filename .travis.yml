@@ -1,0 +1,8 @@
+language: go
+go:
+  - 1.2
+install:
+  - go get -v github.com/naoina/kocha-urlrouter
+  - go get -v github.com/naoina/kocha-urlrouter/doublearray
+script:
+  - go test ./...
