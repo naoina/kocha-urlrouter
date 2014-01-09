@@ -17,3 +17,15 @@ func Benchmark_DoubleArray_Lookup_300(b *testing.B) {
 func Benchmark_DoubleArray_Lookup_700(b *testing.B) {
 	testutil.Benchmark_URLRouter_Lookup(b, New(), 700)
 }
+
+func Benchmark_DoubleArray_Build_100(b *testing.B) {
+	testutil.Benchmark_URLRouter_Build(b, &DoubleArrayRouter{}, 100)
+}
+
+func Benchmark_DoubleArray_Build_300(b *testing.B) {
+	testutil.Benchmark_URLRouter_Build(b, &DoubleArrayRouter{}, 300)
+}
+
+func Benchmark_DoubleArray_Build_700(b *testing.B) {
+	testutil.Benchmark_URLRouter_Build(b, &DoubleArrayRouter{}, 700)
+}
