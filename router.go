@@ -2,6 +2,11 @@ package urlrouter
 
 import "fmt"
 
+const (
+	ParamCharacter    = ':'
+	WildcardCharacter = '*'
+)
+
 var routers map[string]Router
 
 // URLRouter is an interface that must be implemented by a URL router.

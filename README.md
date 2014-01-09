@@ -49,8 +49,9 @@ See [Godoc](http://godoc.org/github.com/naoina/kocha-urlrouter) for more docs.
 
 ## Implementations
 
-* Double-Array `github.com/naoina/kocha-urlrouter/doublearray` (**Recommended**)
+* Double-Array `github.com/naoina/kocha-urlrouter/doublearray`
 * Regular-Expression `github.com/naoina/kocha-urlrouter/regexp`
+* Ternary Search Tree `github.com/naoina/kocha-urlrouter/tst`
 
 ## Benchmark
 

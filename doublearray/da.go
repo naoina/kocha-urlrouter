@@ -10,9 +10,7 @@ import (
 
 const (
 	// Block size of array of BASE/CHECK of Double-Array.
-	blockSize         = 256
-	paramCharacter    = ':'
-	wildcardCharacter = '*'
+	blockSize = 256
 )
 
 // DoubleArray represents a URLRouter by Double-Array.
@@ -77,7 +75,7 @@ func (da *DoubleArray) lookup(path string, params []string, idx int) (*node, []s
 	}
 	nd := da.bc[idx]
 	if nd.paramTree != nil {
-		i := nextSeparator(path, 0)
+		i := urlrouter.NextSeparator(path, 0)
 		remaining, params = path[i:], append(params, path[:i])
 		if nd, params := nd.paramTree.lookup(remaining, params, 0); nd != nil {
 			return nd, params
@@ -95,16 +93,16 @@ func (da *DoubleArray) build(routePaths []string, idx, depth int) error {
 		return err
 	}
 	for _, sib := range siblings {
-		if !isMetaChar(sib.c) {
+		if !urlrouter.IsMetaChar(sib.c) {
 			da.setCheck(nextIndex(base, sib.c), idx)
 		}
 	}
 	for _, sib := range siblings {
 		switch sib.c {
-		case paramCharacter:
+		case urlrouter.ParamCharacter:
 			paths := routePaths[sib.start:sib.end]
 			for i, path := range paths {
-				paths[i] = path[nextSeparator(path, depth):]
+				paths[i] = path[urlrouter.NextSeparator(path, depth):]
 			}
 			rnd := da.bc[idx]
 			if rnd.paramTree == nil {
@@ -113,7 +111,7 @@ func (da *DoubleArray) build(routePaths []string, idx, depth int) error {
 			if err := rnd.paramTree.build(paths, 0, 0); err != nil {
 				return err
 			}
-		case wildcardCharacter:
+		case urlrouter.WildcardCharacter:
 			da.bc[idx].isWildcard = true
 		default:
 			if err := da.build(routePaths[sib.start:sib.end], nextIndex(base, sib.c), depth+1); err != nil {
@@ -215,22 +213,9 @@ type sibling struct {
 	c byte
 }
 
-// isMetaChar returns whether the meta character.
-func isMetaChar(c byte) bool {
-	return c == paramCharacter || c == wildcardCharacter
-}
-
 // nextIndex returns next index of array of BASE/CHECK.
 func nextIndex(base int, c byte) int {
 	return base ^ int(c)
-}
-
-// nextSeparator returns an index of next separator in path.
-func nextSeparator(path string, start int) int {
-	for start < len(path) && path[start] != '/' && path[start] != '.' {
-		start++
-	}
-	return start
 }
 
 // makeSiblings returns slice of sibling from string keys.
