@@ -13,23 +13,40 @@ const (
 	blockSize = 256
 )
 
+// baseCheck represents a BASE/CHECK node.
+type baseCheck struct {
+	base  int
+	check int
+}
+
 // DoubleArray represents a URLRouter by Double-Array.
 type DoubleArray struct {
-	// BASE/CHECK array.
-	bc []*node
+	bc   []baseCheck
+	node map[int]*node
 }
 
 // NewDoubleArray returns a new DoubleArray.
 func New() *DoubleArray {
-	da := &DoubleArray{bc: make([]*node, blockSize)}
-	da.bc[0] = newNode()
+	da := &DoubleArray{
+		bc:   newBaseCheckArray(blockSize),
+		node: make(map[int]*node),
+	}
 	return da
+}
+
+// newBaseCheckArray returns a new slice of baseCheck with given size.
+func newBaseCheckArray(size int) []baseCheck {
+	bc := make([]baseCheck, size)
+	for i := 0; i < len(bc); i++ {
+		bc[i].check = -1
+	}
+	return bc
 }
 
 // Lookup returns result data of lookup from Double-Array routing table by given path.
 func (da *DoubleArray) Lookup(path string) (data interface{}, params map[string]string) {
 	nd, values := da.lookup(path, []string{}, 0)
-	if nd == nil || nd.data == nil {
+	if nd == nil {
 		return nil, nil
 	}
 	if len(values) > 0 {
@@ -63,17 +80,24 @@ func (da *DoubleArray) Build(records []*urlrouter.Record) error {
 	return nil
 }
 
+func (da *DoubleArray) getNode(i int) *node {
+	if da.node[i] == nil {
+		da.node[i] = &node{}
+	}
+	return da.node[i]
+}
+
 func (da *DoubleArray) lookup(path string, params []string, idx int) (*node, []string) {
 	if path == "" {
-		return da.bc[idx], params
+		return da.getNode(idx), params
 	}
 	c, remaining := path[0], path[1:]
-	if next, ok := da.check(c, idx); ok {
+	if next := nextIndex(da.bc[idx].base, c); da.bc[next].check == idx {
 		if nd, params := da.lookup(remaining, params, next); nd != nil {
 			return nd, params
 		}
 	}
-	nd := da.bc[idx]
+	nd := da.getNode(idx)
 	if nd.paramTree != nil {
 		i := urlrouter.NextSeparator(path, 0)
 		remaining, params = path[i:], append(params, path[:i])
@@ -82,7 +106,7 @@ func (da *DoubleArray) lookup(path string, params []string, idx int) (*node, []s
 		}
 	}
 	if nd.isWildcard {
-		return da.bc[idx], append(params, path)
+		return nd, append(params, path)
 	}
 	return nil, nil
 }
@@ -104,15 +128,13 @@ func (da *DoubleArray) build(routePaths []string, idx, depth int) error {
 			for i, path := range paths {
 				paths[i] = path[urlrouter.NextSeparator(path, depth):]
 			}
-			rnd := da.bc[idx]
-			if rnd.paramTree == nil {
-				rnd.paramTree = New()
-			}
-			if err := rnd.paramTree.build(paths, 0, 0); err != nil {
+			nd := da.getNode(idx)
+			nd.paramTree = New()
+			if err := nd.paramTree.build(paths, 0, 0); err != nil {
 				return err
 			}
 		case urlrouter.WildcardCharacter:
-			da.bc[idx].isWildcard = true
+			da.getNode(idx).isWildcard = true
 		default:
 			if err := da.build(routePaths[sib.start:sib.end], nextIndex(base, sib.c), depth+1); err != nil {
 				return err
@@ -122,52 +144,56 @@ func (da *DoubleArray) build(routePaths []string, idx, depth int) error {
 	return nil
 }
 
-// check returns next index of array of BASE/CHECK and whether the CHECK succeeded.
-func (da *DoubleArray) check(c byte, i int) (next int, ok bool) {
-	next = nextIndex(da.bc[i].base, c)
-	return next, (da.bc[next] != nil && da.bc[next].check == i)
-}
-
 // setBase sets BASE.
 func (da *DoubleArray) setBase(i, base int) {
 	da.bc[i].base = base
 }
 
 // setCheck sets CHECK.
-// If array of BASE/CHECK less than or equal to i, it will extend the array of BASE/CHECK.
 func (da *DoubleArray) setCheck(i, check int) {
-	if da.bc[i] == nil {
-		da.bc[i] = newNode()
-	}
 	da.bc[i].check = check
 }
 
 // extendBaseCheckArray extends array of BASE/CHECK.
 func (da *DoubleArray) extendBaseCheckArray() {
-	da.bc = append(da.bc, make([]*node, blockSize)...)
+	da.bc = append(da.bc, newBaseCheckArray(blockSize)...)
+}
+
+// findEmptyIndex returns an index of unused BASE/CHECK node.
+func (da *DoubleArray) findEmptyIndex(start int) int {
+	i := start
+	for ; i < len(da.bc); i++ {
+		if da.bc[i].base == 0 && da.bc[i].check == -1 {
+			break
+		}
+	}
+	return i
 }
 
 // findBase returns good BASE.
-func (da *DoubleArray) findBase(siblings []*sibling) (base int) {
-	base = 1
-	for count := 0; count < len(siblings); {
-		for _, sib := range siblings {
-			next := nextIndex(base, sib.c)
-			if next >= len(da.bc) {
-				da.extendBaseCheckArray()
+func (da *DoubleArray) findBase(siblings []sibling, start int) (base int) {
+	idx := start + 1
+	firstChar := siblings[0].c
+	for ; idx < len(da.bc); idx = da.findEmptyIndex(idx + 1) {
+		base = nextIndex(idx, firstChar)
+		i := 0
+		for ; i < len(siblings); i++ {
+			if urlrouter.IsMetaChar(siblings[i].c) {
+				continue
 			}
-			if da.bc[next] != nil && (da.bc[next].check != -1 || da.bc[next].base != 0) {
-				base++
-				count = 0
+			if next := nextIndex(base, siblings[i].c); da.bc[next].base != 0 || da.bc[next].check != -1 {
 				break
 			}
-			count++
+		}
+		if i == len(siblings) {
+			return base
 		}
 	}
-	return base
+	da.extendBaseCheckArray()
+	return nextIndex(idx, firstChar)
 }
 
-func (da *DoubleArray) arrange(keys []string, idx, depth int) (base int, siblings []*sibling, err error) {
+func (da *DoubleArray) arrange(keys []string, idx, depth int) (base int, siblings []sibling, err error) {
 	siblings, err = makeSiblings(keys, depth)
 	if err != nil {
 		return -1, nil, err
@@ -175,16 +201,14 @@ func (da *DoubleArray) arrange(keys []string, idx, depth int) (base int, sibling
 	if len(siblings) < 1 {
 		return -1, nil, nil
 	}
-	base = da.findBase(siblings)
+	base = da.findBase(siblings, idx)
 	da.setBase(idx, base)
 	return base, siblings, err
 }
 
 // node represents a node of Double-Array.
 type node struct {
-	data  interface{}
-	base  int
-	check int
+	data interface{}
 
 	// Tree of path parameter.
 	paramTree *DoubleArray
@@ -194,11 +218,6 @@ type node struct {
 
 	// Whether the wildcard node.
 	isWildcard bool
-}
-
-// newNode returns a new node.
-func newNode() *node {
-	return &node{base: 0, check: -1}
 }
 
 // sibling represents an intermediate data of build for Double-Array.
@@ -213,13 +232,13 @@ type sibling struct {
 	c byte
 }
 
-// nextIndex returns next index of array of BASE/CHECK.
+// nextIndex returns a next index of array of BASE/CHECK.
 func nextIndex(base int, c byte) int {
 	return base ^ int(c)
 }
 
 // makeSiblings returns slice of sibling from string keys.
-func makeSiblings(keys []string, depth int) (sib []*sibling, err error) {
+func makeSiblings(keys []string, depth int) (sib []sibling, err error) {
 	var (
 		pc byte
 		n  int
@@ -231,7 +250,7 @@ func makeSiblings(keys []string, depth int) (sib []*sibling, err error) {
 		c := key[depth]
 		switch {
 		case pc < c:
-			sib = append(sib, &sibling{start: i, c: c})
+			sib = append(sib, sibling{start: i, c: c})
 		case pc == c:
 			continue
 		default:

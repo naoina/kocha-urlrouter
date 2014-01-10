@@ -17,16 +17,6 @@ func Test_New(t *testing.T) {
 	}
 }
 
-func Test_DoubleArray_NewNode(t *testing.T) {
-	nd := newNode()
-
-	actual := reflect.TypeOf(nd)
-	expected := reflect.TypeOf(&node{})
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("Expect %v, but %v", expected, actual)
-	}
-}
-
 func Test_DoubleArray_Lookup(t *testing.T) {
 	testutil.Test_URLRouter_Lookup(t, New())
 }
