@@ -32,7 +32,9 @@ func Test_URLRouter_Lookup(t *testing.T, router urlrouter.URLRouter) {
 	for _, testcase := range testcases {
 		records = append(records, testcase.record)
 	}
-	router.Build(records)
+	if err := router.Build(records); err != nil {
+		t.Fatal(err)
+	}
 
 	for _, testcase := range testcases {
 		var actual, expected interface{}
@@ -57,7 +59,9 @@ func Test_URLRouter_Lookup_with_many_routes(t *testing.T, router urlrouter.URLRo
 	for i := 0; i < n; i++ {
 		records[i] = &urlrouter.Record{"/" + RandomString(rand.Intn(50)+10), fmt.Sprintf("route%d", i)}
 	}
-	router.Build(records)
+	if err := router.Build(records); err != nil {
+		t.Fatal(err)
+	}
 	for _, record := range records {
 		data, params := router.Lookup(record.Key)
 
