@@ -52,31 +52,31 @@ func Test_NewURLRouter(t *testing.T) {
 	routers["router1"] = &testRouter{router1}
 	routers["router2"] = &testRouter{router2}
 
-	_, err := NewURLRouter("")
-	if err == nil {
-		t.Errorf("Expect error, but nil")
-	}
+	func() {
+		defer func() {
+			if err := recover(); err == nil {
+				t.Errorf("Expect error, but nil")
+			}
+		}()
+		NewURLRouter("")
+	}()
 
-	_, err = NewURLRouter("missing")
-	if err == nil {
-		t.Errorf("Expect error, but nil")
-	}
+	func() {
+		defer func() {
+			if err := recover(); err == nil {
+				t.Errorf("Expect error, but nil")
+			}
+		}()
+		NewURLRouter("missing")
+	}()
 
-	router, err := NewURLRouter("router1")
-	if err != nil {
-		t.Error(err)
-	}
-	actual := router
+	actual := NewURLRouter("router1")
 	expected := router1
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Expect %v, but %v", expected, actual)
 	}
 
-	router, err = NewURLRouter("router2")
-	if err != nil {
-		t.Error(err)
-	}
-	actual = router
+	actual = NewURLRouter("router2")
 	expected = router2
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Expect %v, but %v", expected, actual)

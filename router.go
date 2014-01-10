@@ -33,12 +33,12 @@ func Register(name string, router Router) {
 }
 
 // NewURLRouter returns the URLRouter with the specified name.
-func NewURLRouter(name string) (URLRouter, error) {
+func NewURLRouter(name string) URLRouter {
 	router, exists := routers[name]
 	if !exists {
-		return nil, fmt.Errorf("Router named `%v` is not registered", name)
+		panic(fmt.Errorf("Router named `%v` is not registered", name))
 	}
-	return router.New(), nil
+	return router.New()
 }
 
 // Record represents a record data for a router construction.
