@@ -16,7 +16,7 @@ func New() *TST {
 // Lookup returns result data of lookup from TST routing table by given path.
 func (tst *TST) Lookup(path string) (data interface{}, params map[string]string) {
 	nd, values := tst.root.Find(path, []string{})
-	if nd == nil {
+	if nd == nil || !nd.isLeaf {
 		return nil, nil
 	}
 	if len(values) > 0 {
@@ -47,6 +47,7 @@ type node struct {
 	paramNode      *node
 	isWildcardNode bool
 	paramNames     []string
+	isLeaf         bool
 }
 
 func (nd *node) Find(path string, params []string) (*node, []string) {
@@ -117,7 +118,7 @@ LOOP:
 			nd = n
 		}
 	}
-	nd.data, nd.paramNames = data, paramNames
+	nd.data, nd.paramNames, nd.isLeaf = data, paramNames, true
 }
 
 // add adds a node to leaf.

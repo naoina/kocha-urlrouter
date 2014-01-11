@@ -45,7 +45,11 @@ func newBaseCheckArray(size int) []baseCheck {
 
 // Lookup returns result data of lookup from Double-Array routing table by given path.
 func (da *DoubleArray) Lookup(path string) (data interface{}, params map[string]string) {
-	nd, values := da.lookup(path, []string{}, 0)
+	nodes, idx, values := da.lookup(path, nil, 0)
+	if nodes == nil {
+		return nil, nil
+	}
+	nd := nodes[idx]
 	if nd == nil {
 		return nil, nil
 	}
@@ -65,50 +69,43 @@ func (da *DoubleArray) Build(records []*urlrouter.Record) error {
 		return err
 	}
 	for _, record := range records {
-		nd, names := da.lookup(record.Key, nil, 0)
-		if nd == nil {
+		nodes, idx, names := da.lookup(record.Key, nil, 0)
+		if nodes == nil {
 			return fmt.Errorf("BUG: routing table could not be built correctly")
 		}
+		nodes[idx] = &node{}
 		if len(names) > 0 {
 			for i, name := range names {
 				names[i] = name[1:] // truncate the meta character.
 			}
-			nd.paramNames = names
+			nodes[idx].paramNames = names
 		}
-		nd.data = record.Value
+		nodes[idx].data = record.Value
 	}
 	return nil
 }
 
-func (da *DoubleArray) getNode(i int) *node {
-	if da.node[i] == nil {
-		da.node[i] = &node{}
-	}
-	return da.node[i]
-}
-
-func (da *DoubleArray) lookup(path string, params []string, idx int) (*node, []string) {
+func (da *DoubleArray) lookup(path string, params []string, idx int) (map[int]*node, int, []string) {
 	if path == "" {
-		return da.getNode(idx), params
+		return da.node, idx - 1, params
 	}
 	c, remaining := path[0], path[1:]
 	if next := nextIndex(da.bc[idx].base, c); da.bc[next].check == idx {
-		if nd, params := da.lookup(remaining, params, next); nd != nil {
-			return nd, params
+		if nodes, idx, params := da.lookup(remaining, params, next); nodes != nil {
+			return nodes, idx, params
 		}
 	}
-	nd := da.getNode(idx)
-	if nd.paramTree != nil {
+	if nd := da.node[idx]; nd != nil && nd.paramTree != nil {
 		i := urlrouter.NextSeparator(path, 0)
 		remaining, params = path[i:], append(params, path[:i])
-		if nd, params := nd.paramTree.lookup(remaining, params, 0); nd != nil {
-			return nd, params
+		if nodes, idx, params := nd.paramTree.lookup(remaining, params, 0); nodes != nil {
+			return nodes, idx, params
 		}
 	}
-	if nd.isWildcard {
-		return nd, append(params, path)
+	if nd := da.node[idx]; nd != nil && nd.isWildcard {
+		return da.node, idx - 1, append(params, path)
 	}
-	return nil, nil
+	return nil, -1, nil
 }
 
 func (da *DoubleArray) build(routePaths []string, idx, depth int) error {
@@ -128,13 +125,12 @@ func (da *DoubleArray) build(routePaths []string, idx, depth int) error {
 			for i, path := range paths {
 				paths[i] = path[urlrouter.NextSeparator(path, depth):]
 			}
-			nd := da.getNode(idx)
-			nd.paramTree = New()
-			if err := nd.paramTree.build(paths, 0, 0); err != nil {
+			da.node[idx] = &node{paramTree: New()}
+			if err := da.node[idx].paramTree.build(paths, 0, 0); err != nil {
 				return err
 			}
 		case urlrouter.WildcardCharacter:
-			da.getNode(idx).isWildcard = true
+			da.node[idx] = &node{isWildcard: true}
 		default:
 			if err := da.build(routePaths[sib.start:sib.end], nextIndex(base, sib.c), depth+1); err != nil {
 				return err

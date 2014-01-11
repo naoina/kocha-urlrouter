@@ -10,36 +10,49 @@ import (
 	"github.com/naoina/kocha-urlrouter"
 )
 
+func routes() []*urlrouter.Record {
+	return []*urlrouter.Record{
+		{"/", "testroute0"},
+		{"/path/to/route", "testroute1"},
+		{"/path/to/other", "testroute2"},
+		{"/path/to/route/a", "testroute3"},
+		{"/path/to/:param", "testroute4"},
+		{"/path/to/wildcard/*routepath", "testroute5"},
+		{"/path/to/:param1/:param2", "testroute6"},
+		{"/path/to/:param1/sep/:param2", "testroute7"},
+		{"/:year/:month/:day", "testroute8"},
+		{"/user/:id", "testroute9"},
+		{"/a/to/b/:param/*routepath", "testroute10"},
+	}
+}
+
 func Test_URLRouter_Lookup(t *testing.T, router urlrouter.URLRouter) {
 	testcases := []struct {
 		path   string
+		value  interface{}
 		params map[string]string
-		record *urlrouter.Record
 	}{
-		{"/", nil, &urlrouter.Record{"/", "testroute0"}},
-		{"/path/to/route", nil, &urlrouter.Record{"/path/to/route", "testroute1"}},
-		{"/path/to/other", nil, &urlrouter.Record{"/path/to/other", "testroute2"}},
-		{"/path/to/route/a", nil, &urlrouter.Record{"/path/to/route/a", "testroute3"}},
-		{"/path/to/hoge", map[string]string{"param": "hoge"}, &urlrouter.Record{"/path/to/:param", "testroute4"}},
-		{"/path/to/wildcard/some/params", map[string]string{"routepath": "some/params"}, &urlrouter.Record{"/path/to/wildcard/*routepath", "testroute5"}},
-		{"/path/to/o1/o2", map[string]string{"param1": "o1", "param2": "o2"}, &urlrouter.Record{"/path/to/:param1/:param2", "testroute6"}},
-		{"/path/to/p1/sep/p2", map[string]string{"param1": "p1", "param2": "p2"}, &urlrouter.Record{"/path/to/:param1/sep/:param2", "testroute7"}},
-		{"/2014/01/06", map[string]string{"year": "2014", "month": "01", "day": "06"}, &urlrouter.Record{"/:year/:month/:day", "testroute8"}},
-		{"/user/777", map[string]string{"id": "777"}, &urlrouter.Record{"/user/:id", "testroute9"}},
-		{"/a/to/b/p1/some/wildcard/params", map[string]string{"param": "p1", "routepath": "some/wildcard/params"}, &urlrouter.Record{"/a/to/b/:param/*routepath", "testroute10"}},
+		{"/", "testroute0", nil},
+		{"/path/to/route", "testroute1", nil},
+		{"/path/to/other", "testroute2", nil},
+		{"/path/to/route/a", "testroute3", nil},
+		{"/path/to/hoge", "testroute4", map[string]string{"param": "hoge"}},
+		{"/path/to/wildcard/some/params", "testroute5", map[string]string{"routepath": "some/params"}},
+		{"/path/to/o1/o2", "testroute6", map[string]string{"param1": "o1", "param2": "o2"}},
+		{"/path/to/p1/sep/p2", "testroute7", map[string]string{"param1": "p1", "param2": "p2"}},
+		{"/2014/01/06", "testroute8", map[string]string{"year": "2014", "month": "01", "day": "06"}},
+		{"/user/777", "testroute9", map[string]string{"id": "777"}},
+		{"/a/to/b/p1/some/wildcard/params", "testroute10", map[string]string{"param": "p1", "routepath": "some/wildcard/params"}},
+		{"/missing", nil, nil},
 	}
-	var records []*urlrouter.Record
-	for _, testcase := range testcases {
-		records = append(records, testcase.record)
-	}
-	if err := router.Build(records); err != nil {
+	if err := router.Build(routes()); err != nil {
 		t.Fatal(err)
 	}
 
 	for _, testcase := range testcases {
 		var actual, expected interface{}
 		actual, params := router.Lookup(testcase.path)
-		expected = testcase.record.Value
+		expected = testcase.value
 		if !reflect.DeepEqual(actual, expected) {
 			t.Errorf("Expect %v, but %v", expected, actual)
 		}
