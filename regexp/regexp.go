@@ -32,7 +32,7 @@ func New() *Regexp {
 }
 
 // Lookup returns result data of lookup from regexp routing table by given path.
-func (re *Regexp) Lookup(path string) (data interface{}, params map[string]string) {
+func (re *Regexp) Lookup(path string) (data interface{}, params []urlrouter.Param) {
 	for _, nd := range re.routes {
 		matchesBase := nd.regexp.FindStringSubmatch(path)
 		if len(matchesBase) < 1 {
@@ -40,9 +40,9 @@ func (re *Regexp) Lookup(path string) (data interface{}, params map[string]strin
 		}
 		subexpNames := nd.regexp.SubexpNames()[1:]
 		if matches := matchesBase[1:]; len(matches) > 0 {
-			params = make(map[string]string)
+			params = make([]urlrouter.Param, len(matches))
 			for i := 0; i < len(matches); i++ {
-				params[subexpNames[i]] = matches[i]
+				params[i] = urlrouter.Param{Name: subexpNames[i], Value: matches[i]}
 			}
 		}
 		return nd.data, params

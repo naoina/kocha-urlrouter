@@ -14,16 +14,15 @@ func New() *TST {
 }
 
 // Lookup returns result data of lookup from TST routing table by given path.
-func (tst *TST) Lookup(path string) (data interface{}, params map[string]string) {
+func (tst *TST) Lookup(path string) (data interface{}, params []urlrouter.Param) {
 	nd, values := tst.root.Find(path, []string{})
 	if nd == nil || !nd.isLeaf {
 		return nil, nil
 	}
 	if len(values) > 0 {
-		params = make(map[string]string, len(values))
+		params = make([]urlrouter.Param, len(values))
 		for i, v := range values {
-			name := nd.paramNames[i]
-			params[name] = v
+			params[i] = urlrouter.Param{Name: nd.paramNames[i], Value: v}
 		}
 	}
 	return nd.data, params

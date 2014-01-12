@@ -12,13 +12,19 @@ var routers map[string]Router
 // URLRouter is an interface that must be implemented by a URL router.
 type URLRouter interface {
 	// Lookup returns data and path parameters that associated with path.
-	// params is map of name of path parameter and that value.
-	// e.g. when built routing path is "/path/to/:name" and given path is "/path/to/hoge", parmas is params["name"] = "hoge".
+	// params is a slice of the Param that arranged in the order in which parameters appeared.
+	// e.g. when built routing path is "/path/:id/:name" and given path is "/path/to/1/alice". params order is [{"id": "1"}, {"name": "alice"}], not [{"name": "alice"}, {"id": "1"}].
 	// If failed to lookup, data will be nil.
-	Lookup(path string) (data interface{}, params map[string]string)
+	Lookup(path string) (data interface{}, params []Param)
 
 	// Build builds URL router from records.
 	Build(records []*Record) error
+}
+
+// param represents a name and value of path parameter.
+type Param struct {
+	Name  string
+	Value string
 }
 
 // Router is an interface of factory of URLRouter.

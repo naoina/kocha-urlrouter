@@ -30,19 +30,19 @@ func Test_URLRouter_Lookup(t *testing.T, router urlrouter.URLRouter) {
 	testcases := []struct {
 		path   string
 		value  interface{}
-		params map[string]string
+		params []urlrouter.Param
 	}{
 		{"/", "testroute0", nil},
 		{"/path/to/route", "testroute1", nil},
 		{"/path/to/other", "testroute2", nil},
 		{"/path/to/route/a", "testroute3", nil},
-		{"/path/to/hoge", "testroute4", map[string]string{"param": "hoge"}},
-		{"/path/to/wildcard/some/params", "testroute5", map[string]string{"routepath": "some/params"}},
-		{"/path/to/o1/o2", "testroute6", map[string]string{"param1": "o1", "param2": "o2"}},
-		{"/path/to/p1/sep/p2", "testroute7", map[string]string{"param1": "p1", "param2": "p2"}},
-		{"/2014/01/06", "testroute8", map[string]string{"year": "2014", "month": "01", "day": "06"}},
-		{"/user/777", "testroute9", map[string]string{"id": "777"}},
-		{"/a/to/b/p1/some/wildcard/params", "testroute10", map[string]string{"param": "p1", "routepath": "some/wildcard/params"}},
+		{"/path/to/hoge", "testroute4", []urlrouter.Param{{"param", "hoge"}}},
+		{"/path/to/wildcard/some/params", "testroute5", []urlrouter.Param{{"routepath", "some/params"}}},
+		{"/path/to/o1/o2", "testroute6", []urlrouter.Param{{"param1", "o1"}, {"param2", "o2"}}},
+		{"/path/to/p1/sep/p2", "testroute7", []urlrouter.Param{{"param1", "p1"}, {"param2", "p2"}}},
+		{"/2014/01/06", "testroute8", []urlrouter.Param{{"year", "2014"}, {"month", "01"}, {"day", "06"}}},
+		{"/user/777", "testroute9", []urlrouter.Param{{"id", "777"}}},
+		{"/a/to/b/p1/some/wildcard/params", "testroute10", []urlrouter.Param{{"param", "p1"}, {"routepath", "some/wildcard/params"}}},
 		{"/missing", nil, nil},
 	}
 	if err := router.Build(routes()); err != nil {

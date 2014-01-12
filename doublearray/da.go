@@ -44,7 +44,7 @@ func newBaseCheckArray(size int) []baseCheck {
 }
 
 // Lookup returns result data of lookup from Double-Array routing table by given path.
-func (da *DoubleArray) Lookup(path string) (data interface{}, params map[string]string) {
+func (da *DoubleArray) Lookup(path string) (data interface{}, params []urlrouter.Param) {
 	nodes, idx, values := da.lookup(path, nil, 0)
 	if nodes == nil {
 		return nil, nil
@@ -54,9 +54,9 @@ func (da *DoubleArray) Lookup(path string) (data interface{}, params map[string]
 		return nil, nil
 	}
 	if len(values) > 0 {
-		params = make(map[string]string, len(values))
+		params = make([]urlrouter.Param, len(values))
 		for i, v := range values {
-			params[nd.paramNames[i]] = v
+			params[i] = urlrouter.Param{Name: nd.paramNames[i], Value: v}
 		}
 	}
 	return nd.data, params

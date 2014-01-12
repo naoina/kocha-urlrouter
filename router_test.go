@@ -17,7 +17,7 @@ type testURLRouter struct {
 	name string
 }
 
-func (r *testURLRouter) Lookup(path string) (data interface{}, params map[string]string) {
+func (r *testURLRouter) Lookup(path string) (data interface{}, params []Param) {
 	return nil, nil
 }
 
