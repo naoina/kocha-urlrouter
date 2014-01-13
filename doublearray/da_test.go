@@ -8,7 +8,7 @@ import (
 )
 
 func Test_New(t *testing.T) {
-	da := New()
+	da := New(1)
 
 	actual := reflect.TypeOf(da)
 	expected := reflect.TypeOf(&DoubleArray{})
@@ -18,9 +18,9 @@ func Test_New(t *testing.T) {
 }
 
 func Test_DoubleArray_Lookup(t *testing.T) {
-	testutil.Test_URLRouter_Lookup(t, New())
+	testutil.Test_URLRouter_Lookup(t, &DoubleArrayRouter{})
 }
 
 func Test_DoubleArray_Lookup_with_many_routes(t *testing.T) {
-	testutil.Test_URLRouter_Lookup_with_many_routes(t, New())
+	testutil.Test_URLRouter_Lookup_with_many_routes(t, &DoubleArrayRouter{})
 }

@@ -26,12 +26,13 @@ func routes() []*urlrouter.Record {
 	}
 }
 
-func Test_URLRouter_Lookup(t *testing.T, router urlrouter.URLRouter) {
-	testcases := []struct {
+func Test_URLRouter_Lookup(t *testing.T, router urlrouter.Router) {
+	type testcase struct {
 		path   string
 		value  interface{}
 		params []urlrouter.Param
-	}{
+	}
+	testcases := []testcase{
 		{"/", "testroute0", nil},
 		{"/path/to/route", "testroute1", nil},
 		{"/path/to/other", "testroute2", nil},
@@ -45,13 +46,41 @@ func Test_URLRouter_Lookup(t *testing.T, router urlrouter.URLRouter) {
 		{"/a/to/b/p1/some/wildcard/params", "testroute10", []urlrouter.Param{{"param", "p1"}, {"routepath", "some/wildcard/params"}}},
 		{"/missing", nil, nil},
 	}
-	if err := router.Build(routes()); err != nil {
+	r := router.New()
+	if err := r.Build(routes()); err != nil {
 		t.Fatal(err)
 	}
 
 	for _, testcase := range testcases {
 		var actual, expected interface{}
-		actual, params := router.Lookup(testcase.path)
+		actual, params := r.Lookup(testcase.path)
+		expected = testcase.value
+		if !reflect.DeepEqual(actual, expected) {
+			t.Errorf("Expect %v, but %v", expected, actual)
+		}
+
+		actual = params
+		expected = testcase.params
+		if !reflect.DeepEqual(actual, expected) {
+			t.Errorf("Expect %v, but %v", expected, actual)
+		}
+	}
+
+	records := []*urlrouter.Record{
+		{"/", "testroute0"},
+		{"/*wildcard", "testroute1"},
+	}
+	testcases = []testcase{
+		{"/", "testroute0", nil},
+		{"/foo/bar", "testroute1", []urlrouter.Param{{"wildcard", "foo/bar"}}},
+	}
+	r = router.New()
+	if err := r.Build(records); err != nil {
+		t.Fatal(err)
+	}
+	for _, testcase := range testcases {
+		var actual, expected interface{}
+		actual, params := r.Lookup(testcase.path)
 		expected = testcase.value
 		if !reflect.DeepEqual(actual, expected) {
 			t.Errorf("Expect %v, but %v", expected, actual)
@@ -65,18 +94,19 @@ func Test_URLRouter_Lookup(t *testing.T, router urlrouter.URLRouter) {
 	}
 }
 
-func Test_URLRouter_Lookup_with_many_routes(t *testing.T, router urlrouter.URLRouter) {
+func Test_URLRouter_Lookup_with_many_routes(t *testing.T, router urlrouter.Router) {
 	n := 1000
 	rand.Seed(time.Now().UnixNano())
 	records := make([]*urlrouter.Record, n)
 	for i := 0; i < n; i++ {
 		records[i] = &urlrouter.Record{"/" + RandomString(rand.Intn(50)+10), fmt.Sprintf("route%d", i)}
 	}
-	if err := router.Build(records); err != nil {
+	r := router.New()
+	if err := r.Build(records); err != nil {
 		t.Fatal(err)
 	}
 	for _, record := range records {
-		data, params := router.Lookup(record.Key)
+		data, params := r.Lookup(record.Key)
 
 		var actual interface{} = data
 		var expected interface{} = record.Value

@@ -25,13 +25,12 @@ type DoubleArray struct {
 	node map[int]*node
 }
 
-// NewDoubleArray returns a new DoubleArray.
-func New() *DoubleArray {
-	da := &DoubleArray{
-		bc:   newBaseCheckArray(blockSize),
+// NewDoubleArray returns a new DoubleArray with given size.
+func New(size int) *DoubleArray {
+	return &DoubleArray{
+		bc:   newBaseCheckArray(size),
 		node: make(map[int]*node),
 	}
-	return da
 }
 
 // newBaseCheckArray returns a new slice of baseCheck with given size.
@@ -102,8 +101,8 @@ func (da *DoubleArray) lookup(path string, params []string, idx int) (map[int]*n
 			return nodes, idx, params
 		}
 	}
-	if nd := da.node[idx]; nd != nil && nd.isWildcard {
-		return da.node, idx - 1, append(params, path)
+	if nd := da.node[idx]; nd != nil && nd.wildcardTree != nil {
+		return nd.wildcardTree.node, 0, append(params, path)
 	}
 	return nil, -1, nil
 }
@@ -119,20 +118,19 @@ func (da *DoubleArray) build(routePaths []string, idx, depth int) error {
 		}
 	}
 	for _, sib := range siblings {
-		switch sib.c {
+		switch paths := routePaths[sib.start:sib.end]; sib.c {
 		case urlrouter.ParamCharacter:
-			paths := routePaths[sib.start:sib.end]
 			for i, path := range paths {
 				paths[i] = path[urlrouter.NextSeparator(path, depth):]
 			}
-			da.node[idx] = &node{paramTree: New()}
+			da.node[idx] = &node{paramTree: New(blockSize)}
 			if err := da.node[idx].paramTree.build(paths, 0, 0); err != nil {
 				return err
 			}
 		case urlrouter.WildcardCharacter:
-			da.node[idx] = &node{isWildcard: true}
+			da.node[idx] = &node{wildcardTree: New(0)}
 		default:
-			if err := da.build(routePaths[sib.start:sib.end], nextIndex(base, sib.c), depth+1); err != nil {
+			if err := da.build(paths, nextIndex(base, sib.c), depth+1); err != nil {
 				return err
 			}
 		}
@@ -209,11 +207,11 @@ type node struct {
 	// Tree of path parameter.
 	paramTree *DoubleArray
 
+	// Tree of wildcard path parameter.
+	wildcardTree *DoubleArray
+
 	// Names of path parameters.
 	paramNames []string
-
-	// Whether the wildcard node.
-	isWildcard bool
 }
 
 // sibling represents an intermediate data of build for Double-Array.
@@ -280,7 +278,7 @@ type DoubleArrayRouter struct{}
 
 // New returns a new URLRouter that implemented by Double-Array.
 func (router *DoubleArrayRouter) New() urlrouter.URLRouter {
-	return New()
+	return New(blockSize)
 }
 
 func init() {

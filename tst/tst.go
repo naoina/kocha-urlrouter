@@ -38,15 +38,15 @@ func (tst *TST) Build(records []*urlrouter.Record) error {
 
 // node represents a node of TST.
 type node struct {
-	c              byte
-	data           interface{}
-	left           *node
-	mid            *node
-	right          *node
-	paramNode      *node
-	isWildcardNode bool
-	paramNames     []string
-	isLeaf         bool
+	c            byte
+	data         interface{}
+	left         *node
+	mid          *node
+	right        *node
+	paramNode    *node
+	wildcardNode *node
+	paramNames   []string
+	isLeaf       bool
 }
 
 func (nd *node) Find(path string, params []string) (*node, []string) {
@@ -66,8 +66,8 @@ func (nd *node) Find(path string, params []string) (*node, []string) {
 			return nd, params
 		}
 	}
-	if nd.isWildcardNode {
-		return nd, append(params, path)
+	if nd.wildcardNode != nil {
+		return nd.wildcardNode, append(params, path)
 	}
 	return nil, nil
 }
@@ -88,7 +88,6 @@ func (nd *node) find(c byte) *node {
 
 func (nd *node) Add(path string, data interface{}) {
 	var paramNames []string
-LOOP:
 	for i := 0; i < len(path); i++ {
 		switch c, remaining := path[i], path[i+1:]; c {
 		case urlrouter.ParamCharacter:
@@ -100,10 +99,10 @@ LOOP:
 			i += next
 			nd = nd.paramNode
 		case urlrouter.WildcardCharacter:
-			i := urlrouter.NextSeparator(remaining, 0)
-			paramNames = append(paramNames, remaining[:i])
-			nd.isWildcardNode = true
-			break LOOP
+			paramNames = append(paramNames, remaining[:len(remaining)])
+			nd.wildcardNode = &node{}
+			nd = nd.wildcardNode
+			i = len(path)
 		default:
 			n := nd.mid.find(c)
 			if n == nil {
