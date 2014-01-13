@@ -24,3 +24,7 @@ func Test_Regexp_Lookup(t *testing.T) {
 func Test_Regexp_Lookup_with_many_routes(t *testing.T) {
 	testutil.Test_URLRouter_Lookup_with_many_routes(t, &RegexpRouter{})
 }
+
+func Test_Regexp_Build(t *testing.T) {
+	testutil.Test_URLRouter_Build(t, &RegexpRouter{})
+}

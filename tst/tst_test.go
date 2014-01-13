@@ -24,3 +24,7 @@ func Test_TST_Lookup(t *testing.T) {
 func Test_TST_Lookup_with_many_routes(t *testing.T) {
 	testutil.Test_URLRouter_Lookup_with_many_routes(t, &TSTRouter{})
 }
+
+func Test_TST_Build(t *testing.T) {
+	testutil.Test_URLRouter_Build(t, &TSTRouter{})
+}

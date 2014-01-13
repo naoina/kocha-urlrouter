@@ -65,6 +65,7 @@ func (re *Regexp) Build(records []*urlrouter.Record) error {
 
 func build(path string, data interface{}) (*route, error) {
 	var buf bytes.Buffer
+	dups := make(map[string]bool)
 	for _, paths := range pathRegexp.FindAllStringSubmatch(path, -1) {
 		name := paths[1] + paths[2]
 		if name == "" {
@@ -76,6 +77,10 @@ func build(path string, data interface{}) (*route, error) {
 		if pathReStr = paramRegexpStr[name[0]]; pathReStr == "" {
 			pathReStr = defaultParamRegexpStr
 		} else {
+			if dups[name] {
+				return nil, fmt.Errorf("path parameter `%v` is duplicated in the key '%v'", name, path)
+			}
+			dups[name] = true
 			name = name[1:] // truncate a meta character.
 		}
 		buf.WriteString(fmt.Sprintf(`/(?P<%s>%s)`, regexp.QuoteMeta(name), pathReStr))

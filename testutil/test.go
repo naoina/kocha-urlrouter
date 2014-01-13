@@ -121,3 +121,16 @@ func Test_URLRouter_Lookup_with_many_routes(t *testing.T, router urlrouter.Route
 		}
 	}
 }
+
+func Test_URLRouter_Build(t *testing.T, router urlrouter.Router) {
+	// test for duplicate name of path parameters.
+	func() {
+		r := router.New()
+		if err := r.Build([]*urlrouter.Record{
+			{"/:user/:id/:id", "testroute0"},
+			{"/:user/:user/:id", "testroute0"},
+		}); err == nil {
+			t.Errorf("no error returned by duplicate name of path parameters")
+		}
+	}()
+}

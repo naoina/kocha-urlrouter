@@ -74,6 +74,13 @@ func (da *DoubleArray) Build(records []*urlrouter.Record) error {
 		}
 		nodes[idx] = &node{}
 		if len(names) > 0 {
+			dups := make(map[string]bool)
+			for _, name := range names {
+				if dups[name] {
+					return fmt.Errorf("path parameter `%v` is duplicated in the key '%v'", name, record.Key)
+				}
+				dups[name] = true
+			}
 			for i, name := range names {
 				names[i] = name[1:] // truncate the meta character.
 			}

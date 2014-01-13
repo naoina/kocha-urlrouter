@@ -1,7 +1,11 @@
 // A URL router implemented by Ternary Search Tree.
 package tst
 
-import "github.com/naoina/kocha-urlrouter"
+import (
+	"fmt"
+
+	"github.com/naoina/kocha-urlrouter"
+)
 
 // TST represents a URLRouter by Ternary Search Tree.
 type TST struct {
@@ -31,7 +35,9 @@ func (tst *TST) Lookup(path string) (data interface{}, params []urlrouter.Param)
 // Build builds TST routing table from records.
 func (tst *TST) Build(records []*urlrouter.Record) error {
 	for _, record := range records {
-		tst.root.Add(record.Key, record.Value)
+		if err := tst.root.Add(record.Key, record.Value); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -86,7 +92,7 @@ func (nd *node) find(c byte) *node {
 	return nil
 }
 
-func (nd *node) Add(path string, data interface{}) {
+func (nd *node) Add(path string, data interface{}) error {
 	var paramNames []string
 	for i := 0; i < len(path); i++ {
 		switch c, remaining := path[i], path[i+1:]; c {
@@ -116,7 +122,17 @@ func (nd *node) Add(path string, data interface{}) {
 			nd = n
 		}
 	}
+	if len(paramNames) > 0 {
+		dups := make(map[string]bool)
+		for _, name := range paramNames {
+			if dups[name] {
+				return fmt.Errorf("path parameter `%v` is duplicated in the key '%v'", name, path)
+			}
+			dups[name] = true
+		}
+	}
 	nd.data, nd.paramNames, nd.isLeaf = data, paramNames, true
+	return nil
 }
 
 // add adds a node to leaf.
