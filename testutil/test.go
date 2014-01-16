@@ -32,7 +32,28 @@ func Test_URLRouter_Lookup(t *testing.T, router urlrouter.Router) {
 		value  interface{}
 		params []urlrouter.Param
 	}
-	testcases := []testcase{
+	runTest := func(records []*urlrouter.Record, testcases []*testcase) {
+		r := router.New()
+		if err := r.Build(records); err != nil {
+			t.Fatal(err)
+		}
+
+		for _, testcase := range testcases {
+			var actual, expected interface{}
+			actual, params := r.Lookup(testcase.path)
+			expected = testcase.value
+			if !reflect.DeepEqual(actual, expected) {
+				t.Errorf("Expect %v, but %v", expected, actual)
+			}
+
+			actual = params
+			expected = testcase.params
+			if !reflect.DeepEqual(actual, expected) {
+				t.Errorf("Expect %v, but %v", expected, actual)
+			}
+		}
+	}
+	testcases := []*testcase{
 		{"/", "testroute0", nil},
 		{"/path/to/route", "testroute1", nil},
 		{"/path/to/other", "testroute2", nil},
@@ -46,52 +67,17 @@ func Test_URLRouter_Lookup(t *testing.T, router urlrouter.Router) {
 		{"/a/to/b/p1/some/wildcard/params", "testroute10", []urlrouter.Param{{"param", "p1"}, {"routepath", "some/wildcard/params"}}},
 		{"/missing", nil, nil},
 	}
-	r := router.New()
-	if err := r.Build(routes()); err != nil {
-		t.Fatal(err)
-	}
-
-	for _, testcase := range testcases {
-		var actual, expected interface{}
-		actual, params := r.Lookup(testcase.path)
-		expected = testcase.value
-		if !reflect.DeepEqual(actual, expected) {
-			t.Errorf("Expect %v, but %v", expected, actual)
-		}
-
-		actual = params
-		expected = testcase.params
-		if !reflect.DeepEqual(actual, expected) {
-			t.Errorf("Expect %v, but %v", expected, actual)
-		}
-	}
+	runTest(routes(), testcases)
 
 	records := []*urlrouter.Record{
 		{"/", "testroute0"},
 		{"/*wildcard", "testroute1"},
 	}
-	testcases = []testcase{
+	testcases = []*testcase{
 		{"/", "testroute0", nil},
 		{"/foo/bar", "testroute1", []urlrouter.Param{{"wildcard", "foo/bar"}}},
 	}
-	r = router.New()
-	if err := r.Build(records); err != nil {
-		t.Fatal(err)
-	}
-	for _, testcase := range testcases {
-		var actual, expected interface{}
-		actual, params := r.Lookup(testcase.path)
-		expected = testcase.value
-		if !reflect.DeepEqual(actual, expected) {
-			t.Errorf("Expect %v, but %v", expected, actual)
-		}
-
-		actual = params
-		expected = testcase.params
-		if !reflect.DeepEqual(actual, expected) {
-			t.Errorf("Expect %v, but %v", expected, actual)
-		}
-	}
+	runTest(records, testcases)
 }
 
 func Test_URLRouter_Lookup_with_many_routes(t *testing.T, router urlrouter.Router) {
