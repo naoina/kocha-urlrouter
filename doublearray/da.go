@@ -63,37 +63,16 @@ func (da *DoubleArray) Lookup(path string) (data interface{}, params []urlrouter
 
 // Build builds Double-Array routing table from records.
 func (da *DoubleArray) Build(records []urlrouter.Record) error {
-	keys := sortedKeys(records)
-	if err := da.build(keys, 0, 0); err != nil {
+	sortedRecords := makeRecords(records)
+	if err := da.build(sortedRecords, 0, 0); err != nil {
 		return err
-	}
-	for _, record := range records {
-		nodes, idx, names := da.lookup(record.Key, nil, 0)
-		if nodes == nil {
-			return fmt.Errorf("BUG: routing table could not be built correctly")
-		}
-		nodes[idx] = &node{}
-		if len(names) > 0 {
-			dups := make(map[string]bool)
-			for _, name := range names {
-				if dups[name] {
-					return fmt.Errorf("path parameter `%v` is duplicated in the key '%v'", name, record.Key)
-				}
-				dups[name] = true
-			}
-			for i, name := range names {
-				names[i] = name[1:] // truncate the meta character.
-			}
-			nodes[idx].paramNames = names
-		}
-		nodes[idx].data = record.Value
 	}
 	return nil
 }
 
 func (da *DoubleArray) lookup(path string, params []string, idx int) (map[int]*node, int, []string) {
 	if path == "" {
-		return da.node, idx - 1, params
+		return da.node, idx, params
 	}
 	c, remaining := path[0], path[1:]
 	if next := nextIndex(da.bc[idx].base, c); da.bc[next].check == idx {
@@ -103,7 +82,7 @@ func (da *DoubleArray) lookup(path string, params []string, idx int) (map[int]*n
 	}
 	if nd := da.node[idx]; nd != nil && nd.paramTree != nil {
 		i := urlrouter.NextSeparator(path, 0)
-		remaining, params = path[i:], append(params, path[:i])
+		remaining, params := path[i:], append(params, path[:i])
 		if nodes, idx, params := nd.paramTree.lookup(remaining, params, 0); nodes != nil {
 			return nodes, idx, params
 		}
@@ -114,10 +93,17 @@ func (da *DoubleArray) lookup(path string, params []string, idx int) (map[int]*n
 	return nil, -1, nil
 }
 
-func (da *DoubleArray) build(routePaths []string, idx, depth int) error {
-	base, siblings, err := da.arrange(routePaths, idx, depth)
+func (da *DoubleArray) build(srcs []*Record, idx, depth int) error {
+	base, siblings, leaf, err := da.arrange(srcs, idx, depth)
 	if err != nil {
 		return err
+	}
+	if leaf != nil {
+		nd, err := makeNode(leaf)
+		if err != nil {
+			return err
+		}
+		da.node[idx] = nd
 	}
 	for _, sib := range siblings {
 		if !urlrouter.IsMetaChar(sib.c) {
@@ -125,19 +111,36 @@ func (da *DoubleArray) build(routePaths []string, idx, depth int) error {
 		}
 	}
 	for _, sib := range siblings {
-		switch paths := routePaths[sib.start:sib.end]; sib.c {
+		switch records := srcs[sib.start:sib.end]; sib.c {
 		case urlrouter.ParamCharacter:
-			for i, path := range paths {
-				paths[i] = path[urlrouter.NextSeparator(path, depth):]
+			for _, record := range records {
+				next := urlrouter.NextSeparator(record.Key, depth)
+				name := record.Key[depth+1 : next]
+				record.paramNames = append(record.paramNames, name)
+				record.Key = record.Key[next:]
 			}
-			da.node[idx] = &node{paramTree: New(blockSize)}
-			if err := da.node[idx].paramTree.build(paths, 0, 0); err != nil {
+			if da.node[idx] == nil {
+				da.node[idx] = &node{}
+			}
+			da.node[idx].paramTree = New(blockSize)
+			if err := da.node[idx].paramTree.build(records, 0, 0); err != nil {
 				return err
 			}
 		case urlrouter.WildcardCharacter:
-			da.node[idx] = &node{wildcardTree: New(0)}
+			if da.node[idx] == nil {
+				da.node[idx] = &node{}
+			}
+			record := records[0]
+			name := record.Key[depth+1:]
+			record.paramNames = append(record.paramNames, name)
+			da.node[idx].wildcardTree = New(0)
+			nd, err := makeNode(record)
+			if err != nil {
+				return err
+			}
+			da.node[idx].wildcardTree.node[0] = nd
 		default:
-			if err := da.build(paths, nextIndex(base, sib.c), depth+1); err != nil {
+			if err := da.build(records, nextIndex(base, sib.c), depth+1); err != nil {
 				return err
 			}
 		}
@@ -194,17 +197,17 @@ func (da *DoubleArray) findBase(siblings []sibling, start int) (base int) {
 	return nextIndex(idx, firstChar)
 }
 
-func (da *DoubleArray) arrange(keys []string, idx, depth int) (base int, siblings []sibling, err error) {
-	siblings, err = makeSiblings(keys, depth)
+func (da *DoubleArray) arrange(records []*Record, idx, depth int) (base int, siblings []sibling, leaf *Record, err error) {
+	siblings, leaf, err = makeSiblings(records, depth)
 	if err != nil {
-		return -1, nil, err
+		return -1, nil, nil, err
 	}
 	if len(siblings) < 1 {
-		return -1, nil, nil
+		return -1, nil, leaf, nil
 	}
 	base = da.findBase(siblings, idx)
 	da.setBase(idx, base)
-	return base, siblings, err
+	return base, siblings, leaf, err
 }
 
 // node represents a node of Double-Array.
@@ -219,6 +222,18 @@ type node struct {
 
 	// Names of path parameters.
 	paramNames []string
+}
+
+// makeNode returns a new node from record.
+func makeNode(record *Record) (*node, error) {
+	dups := make(map[string]bool)
+	for _, name := range record.paramNames {
+		if dups[name] {
+			return nil, fmt.Errorf("path parameter `%v` is duplicated in the key '%v'", name, record.Key)
+		}
+		dups[name] = true
+	}
+	return &node{data: record.Value, paramNames: record.paramNames}, nil
 }
 
 // sibling represents an intermediate data of build for Double-Array.
@@ -238,24 +253,25 @@ func nextIndex(base int, c byte) int {
 	return base ^ int(c)
 }
 
-// makeSiblings returns slice of sibling from string keys.
-func makeSiblings(keys []string, depth int) (sib []sibling, err error) {
+// makeSiblings returns slice of sibling.
+func makeSiblings(records []*Record, depth int) (sib []sibling, leaf *Record, err error) {
 	var (
 		pc byte
 		n  int
 	)
-	for i, key := range keys {
-		if len(key) <= depth {
+	for i, record := range records {
+		if len(record.Key) == depth {
+			leaf = record
 			continue
 		}
-		c := key[depth]
+		c := record.Key[depth]
 		switch {
 		case pc < c:
 			sib = append(sib, sibling{start: i, c: c})
 		case pc == c:
 			continue
 		default:
-			return nil, fmt.Errorf("BUG: routing table hasn't been sorted")
+			return nil, nil, fmt.Errorf("BUG: routing table hasn't been sorted")
 		}
 		if n > 0 {
 			sib[n-1].end = i
@@ -264,20 +280,44 @@ func makeSiblings(keys []string, depth int) (sib []sibling, err error) {
 		n++
 	}
 	if n == 0 {
-		return nil, nil
+		return nil, leaf, nil
 	}
-	sib[n-1].end = len(keys)
-	return sib, nil
+	sib[n-1].end = len(records)
+	return sib, leaf, nil
 }
 
-// sortedKeys returns sorted keys of records.
-func sortedKeys(records []urlrouter.Record) (keys []string) {
-	keys = make([]string, len(records))
-	for i, record := range records {
-		keys[i] = record.Key
+// Record represents a record that use to build the Double-Array.
+type Record struct {
+	urlrouter.Record
+	paramNames []string
+}
+
+// RecordSlice represents a slice of Record for sort and implements the sort.Interface.
+type RecordSlice []*Record
+
+// makeRecords returns the records that use to build the Double-Array.
+func makeRecords(srcs []urlrouter.Record) []*Record {
+	records := make([]*Record, len(srcs))
+	for i, record := range srcs {
+		records[i] = &Record{Record: record}
 	}
-	sort.Strings(keys)
-	return keys
+	sort.Sort(RecordSlice(records))
+	return records
+}
+
+// Len implements the sort.Interface.Len.
+func (rs RecordSlice) Len() int {
+	return len(rs)
+}
+
+// Less implements the sort.Interface.Less.
+func (rs RecordSlice) Less(i, j int) bool {
+	return rs[i].Key < rs[j].Key
+}
+
+// Swap implements the sort.Interface.Swap.
+func (rs RecordSlice) Swap(i, j int) {
+	rs[i], rs[j] = rs[j], rs[i]
 }
 
 // DoubleArrayRouter represents the Router of Double-Array.

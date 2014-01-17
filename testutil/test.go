@@ -71,10 +71,12 @@ func Test_URLRouter_Lookup(t *testing.T, router urlrouter.Router) {
 
 	records := []urlrouter.Record{
 		{"/", "testroute0"},
+		{"/:b", "testroute1"},
 		{"/*wildcard", "testroute2"},
 	}
 	testcases = []*testcase{
 		{"/", "testroute0", nil},
+		{"/true", "testroute1", []urlrouter.Param{{"b", "true"}}},
 		{"/foo/bar", "testroute2", []urlrouter.Param{{"wildcard", "foo/bar"}}},
 	}
 	runTest(records, testcases)

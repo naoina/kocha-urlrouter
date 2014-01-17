@@ -67,8 +67,8 @@ func (nd *node) Find(path string, params []string) (*node, []string) {
 	}
 	if nd.paramNode != nil {
 		i := urlrouter.NextSeparator(path, 0)
-		remaining, params = path[i:], append(params, path[:i])
-		if nd, params = nd.paramNode.Find(remaining, params); nd != nil {
+		remaining, params := path[i:], append(params, path[:i])
+		if nd, params := nd.paramNode.Find(remaining, params); nd != nil {
 			return nd, params
 		}
 	}
