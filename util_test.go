@@ -39,3 +39,19 @@ func Test_IsMetaChar(t *testing.T) {
 		}
 	}
 }
+
+func Test_ParamNames(t *testing.T) {
+	for path, expected := range map[string][]string{
+		"/:a":    {":a"},
+		"/:b":    {":b"},
+		"/:a/:b": {":a", ":b"},
+		"/:ab":   {":ab"},
+		"/*w":    {"*w"},
+		"/*w/:p": {"*w", ":p"},
+	} {
+		actual := ParamNames(path)
+		if !reflect.DeepEqual(actual, expected) {
+			t.Errorf("%q expects %q, but %q", path, expected, actual)
+		}
+	}
+}
