@@ -62,7 +62,7 @@ func (da *DoubleArray) Lookup(path string) (data interface{}, params []urlrouter
 }
 
 // Build builds Double-Array routing table from records.
-func (da *DoubleArray) Build(records []*urlrouter.Record) error {
+func (da *DoubleArray) Build(records []urlrouter.Record) error {
 	keys := sortedKeys(records)
 	if err := da.build(keys, 0, 0); err != nil {
 		return err
@@ -271,7 +271,7 @@ func makeSiblings(keys []string, depth int) (sib []sibling, err error) {
 }
 
 // sortedKeys returns sorted keys of records.
-func sortedKeys(records []*urlrouter.Record) (keys []string) {
+func sortedKeys(records []urlrouter.Record) (keys []string) {
 	keys = make([]string, len(records))
 	for i, record := range records {
 		keys[i] = record.Key

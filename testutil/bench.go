@@ -34,14 +34,14 @@ func Benchmark_URLRouter_Build(b *testing.B, router urlrouter.Router, n int) {
 	}
 }
 
-func makeTestRecords(n int) []*urlrouter.Record {
-	records := make([]*urlrouter.Record, n)
+func makeTestRecords(n int) []urlrouter.Record {
+	records := make([]urlrouter.Record, n)
 	for i := 0; i < n; i++ {
 		records[i] = urlrouter.NewRecord("/"+RandomString(50), fmt.Sprintf("testroute%d", i))
 	}
 	return records
 }
 
-func pickTestRecord(records []*urlrouter.Record) *urlrouter.Record {
+func pickTestRecord(records []urlrouter.Record) urlrouter.Record {
 	return records[len(records)/2]
 }

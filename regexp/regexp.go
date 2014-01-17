@@ -51,7 +51,7 @@ func (re *Regexp) Lookup(path string) (data interface{}, params []urlrouter.Para
 }
 
 // Build builds regexp routing table from records.
-func (re *Regexp) Build(records []*urlrouter.Record) error {
+func (re *Regexp) Build(records []urlrouter.Record) error {
 	re.routes = make([]*route, len(records))
 	for i, record := range records {
 		route, err := build(record.Key, record.Value)

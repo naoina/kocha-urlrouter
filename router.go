@@ -18,7 +18,7 @@ type URLRouter interface {
 	Lookup(path string) (data interface{}, params []Param)
 
 	// Build builds URL router from records.
-	Build(records []*Record) error
+	Build(records []Record) error
 }
 
 // param represents a name and value of path parameter.
@@ -57,8 +57,8 @@ type Record struct {
 }
 
 // NewRecord returns a new Record.
-func NewRecord(key string, value interface{}) *Record {
-	return &Record{
+func NewRecord(key string, value interface{}) Record {
+	return Record{
 		Key:   key,
 		Value: value,
 	}

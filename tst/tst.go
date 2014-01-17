@@ -33,7 +33,7 @@ func (tst *TST) Lookup(path string) (data interface{}, params []urlrouter.Param)
 }
 
 // Build builds TST routing table from records.
-func (tst *TST) Build(records []*urlrouter.Record) error {
+func (tst *TST) Build(records []urlrouter.Record) error {
 	for _, record := range records {
 		if err := tst.root.Add(record.Key, record.Value); err != nil {
 			return err

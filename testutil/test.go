@@ -10,8 +10,8 @@ import (
 	"github.com/naoina/kocha-urlrouter"
 )
 
-func routes() []*urlrouter.Record {
-	return []*urlrouter.Record{
+func routes() []urlrouter.Record {
+	return []urlrouter.Record{
 		{"/", "testroute0"},
 		{"/path/to/route", "testroute1"},
 		{"/path/to/other", "testroute2"},
@@ -32,7 +32,7 @@ func Test_URLRouter_Lookup(t *testing.T, router urlrouter.Router) {
 		value  interface{}
 		params []urlrouter.Param
 	}
-	runTest := func(records []*urlrouter.Record, testcases []*testcase) {
+	runTest := func(records []urlrouter.Record, testcases []*testcase) {
 		r := router.New()
 		if err := r.Build(records); err != nil {
 			t.Fatal(err)
@@ -69,13 +69,13 @@ func Test_URLRouter_Lookup(t *testing.T, router urlrouter.Router) {
 	}
 	runTest(routes(), testcases)
 
-	records := []*urlrouter.Record{
+	records := []urlrouter.Record{
 		{"/", "testroute0"},
-		{"/*wildcard", "testroute1"},
+		{"/*wildcard", "testroute2"},
 	}
 	testcases = []*testcase{
 		{"/", "testroute0", nil},
-		{"/foo/bar", "testroute1", []urlrouter.Param{{"wildcard", "foo/bar"}}},
+		{"/foo/bar", "testroute2", []urlrouter.Param{{"wildcard", "foo/bar"}}},
 	}
 	runTest(records, testcases)
 }
@@ -83,9 +83,9 @@ func Test_URLRouter_Lookup(t *testing.T, router urlrouter.Router) {
 func Test_URLRouter_Lookup_with_many_routes(t *testing.T, router urlrouter.Router) {
 	n := 1000
 	rand.Seed(time.Now().UnixNano())
-	records := make([]*urlrouter.Record, n)
+	records := make([]urlrouter.Record, n)
 	for i := 0; i < n; i++ {
-		records[i] = &urlrouter.Record{"/" + RandomString(rand.Intn(50)+10), fmt.Sprintf("route%d", i)}
+		records[i] = urlrouter.Record{"/" + RandomString(rand.Intn(50)+10), fmt.Sprintf("route%d", i)}
 	}
 	r := router.New()
 	if err := r.Build(records); err != nil {
@@ -112,7 +112,7 @@ func Test_URLRouter_Build(t *testing.T, router urlrouter.Router) {
 	// test for duplicate name of path parameters.
 	func() {
 		r := router.New()
-		if err := r.Build([]*urlrouter.Record{
+		if err := r.Build([]urlrouter.Record{
 			{"/:user/:id/:id", "testroute0"},
 			{"/:user/:user/:id", "testroute0"},
 		}); err == nil {

@@ -21,7 +21,7 @@ func (r *testURLRouter) Lookup(path string) (data interface{}, params []Param) {
 	return nil, nil
 }
 
-func (r *testURLRouter) Build(records []*Record) error {
+func (r *testURLRouter) Build(records []Record) error {
 	return nil
 }
 
@@ -85,7 +85,7 @@ func Test_NewURLRouter(t *testing.T) {
 
 func Test_NewRecord(t *testing.T) {
 	actual := NewRecord("testkey", 100)
-	expected := &Record{Key: "testkey", Value: 100}
+	expected := Record{Key: "testkey", Value: 100}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Expect %v, but %v", expected, actual)
 	}
