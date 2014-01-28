@@ -36,12 +36,14 @@ func main() {
     router.Build([]*urlrouter.Record{
         urlrouter.NewRecord("/", &route{"root"}),
         urlrouter.NewRecord("/user/:id", &route{"user"}),
+        urlrouter.NewRecord("/user/:name/:id", &route{"username"}),
         urlrouter.NewRecord("/static/*filepath", &route{"static"}),
     })
 
-    router.Lookup("/")                    // returns *route{"root"}, nil map
-    router.Lookup("/user/hoge")           // returns *route{"user"}, map of {"id": "hoge"}
-    router.Lookup("/static/path/to/file") // returns *route{"static"}, map of {"filepath": "path/to/file"}
+    router.Lookup("/")                    // returns *route{"root"}, nil slice.
+    router.Lookup("/user/hoge")           // returns *route{"user"}, []urlrouter.Param{{"id", "hoge"}}
+    router.Lookup("/user/hoge/7")           // returns *route{"username"}, []urlrouter.Param{{"name", "hoge"}, {"id", "7"}}
+    router.Lookup("/static/path/to/file") // returns *route{"static"}, []urlrouter.Param{{"filepath", "path/to/file"}}
 }
 ```
 
