@@ -30,7 +30,7 @@ type route struct {
 
 func main() {
     router := urlrouter.NewURLRouter("doublearray")
-    router.Build([]*urlrouter.Record{
+    router.Build([]urlrouter.Record{
         urlrouter.NewRecord("/", &route{"root"}),
         urlrouter.NewRecord("/user/:id", &route{"user"}),
         urlrouter.NewRecord("/user/:name/:id", &route{"username"}),
