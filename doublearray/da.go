@@ -15,8 +15,10 @@ const (
 
 // baseCheck represents a BASE/CHECK node.
 type baseCheck struct {
-	base  int
-	check int
+	base        int
+	check       int
+	hasParams   bool
+	hasWildcard bool
 }
 
 // DoubleArray represents a URLRouter by Double-Array.
@@ -44,7 +46,7 @@ func newBaseCheckArray(size int) []baseCheck {
 
 // Lookup returns result data of lookup from Double-Array routing table by given path.
 func (da *DoubleArray) Lookup(path string) (data interface{}, params []urlrouter.Param) {
-	nodes, idx, values := da.lookup(path, nil, 0)
+	nodes, idx, values := da.lookup(path, nil)
 	if nodes == nil {
 		return nil, nil
 	}
@@ -70,27 +72,40 @@ func (da *DoubleArray) Build(records []urlrouter.Record) error {
 	return nil
 }
 
-func (da *DoubleArray) lookup(path string, params []string, idx int) (map[int]*node, int, []string) {
-	if path == "" {
+func (da *DoubleArray) lookup(path string, params []string) (map[int]*node, int, []string) {
+	idx, indexes, found := da.lookupStatic(path)
+	if found {
 		return da.node, idx, params
 	}
-	c, remaining := path[0], path[1:]
-	if next := nextIndex(da.bc[idx].base, c); da.bc[next].check == idx {
-		if nodes, idx, params := da.lookup(remaining, params, next); nodes != nil {
-			return nodes, idx, params
+	for i := len(indexes) - 1; i >= 0; i-- {
+		curIdx, idx := int((indexes[i]>>32)&0xffffffff), int(indexes[i]&0xffffffff)
+		nd := da.node[idx]
+		if nd.paramTree != nil {
+			i := urlrouter.NextSeparator(path, curIdx)
+			remaining, params := path[i:], append(params, path[curIdx:i])
+			if nodes, idx, params := nd.paramTree.lookup(remaining, params); nodes != nil {
+				return nodes, idx, params
+			}
 		}
-	}
-	if nd := da.node[idx]; nd != nil && nd.paramTree != nil {
-		i := urlrouter.NextSeparator(path, 0)
-		remaining, params := path[i:], append(params, path[:i])
-		if nodes, idx, params := nd.paramTree.lookup(remaining, params, 0); nodes != nil {
-			return nodes, idx, params
+		if nd.wildcardTree != nil {
+			return nd.wildcardTree.node, 0, append(params, path[curIdx:])
 		}
-	}
-	if nd := da.node[idx]; nd != nil && nd.wildcardTree != nil {
-		return nd.wildcardTree.node, 0, append(params, path)
 	}
 	return nil, -1, nil
+}
+
+func (da *DoubleArray) lookupStatic(path string) (idx int, indexes []int64, found bool) {
+	for i := 0; i < len(path); i++ {
+		next := nextIndex(da.bc[idx].base, path[i])
+		if da.bc[next].check != idx {
+			return -1, indexes, false
+		}
+		idx = next
+		if da.bc[idx].hasParams || da.bc[idx].hasWildcard {
+			indexes = append(indexes, int64(((i+1)&0xffffffff)<<32)|int64(idx&0xffffffff))
+		}
+	}
+	return idx, nil, true
 }
 
 func (da *DoubleArray) build(srcs []*Record, idx, depth int) error {
@@ -123,6 +138,7 @@ func (da *DoubleArray) build(srcs []*Record, idx, depth int) error {
 				da.node[idx] = &node{}
 			}
 			da.node[idx].paramTree = New(blockSize)
+			da.bc[idx].hasParams = true
 			if err := da.node[idx].paramTree.build(records, 0, 0); err != nil {
 				return err
 			}
@@ -139,6 +155,7 @@ func (da *DoubleArray) build(srcs []*Record, idx, depth int) error {
 				return err
 			}
 			da.node[idx].wildcardTree.node[0] = nd
+			da.bc[idx].hasWildcard = true
 		default:
 			if err := da.build(records, nextIndex(base, sib.c), depth+1); err != nil {
 				return err
