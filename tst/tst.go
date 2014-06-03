@@ -55,27 +55,43 @@ type node struct {
 	isLeaf       bool
 }
 
+type nodeIndex struct {
+	nd  *node
+	idx int
+}
+
 func (nd *node) Find(path string, params []string) (*node, []string) {
-	if path == "" {
+	nd, nodes := nd.findStatic(path)
+	if nd != nil {
 		return nd, params
 	}
-	c, remaining := path[0], path[1:]
-	if nd := nd.mid.find(c); nd != nil {
-		if nd, params := nd.Find(remaining, params); nd != nil {
-			return nd, params
+	for i := len(nodes) - 1; i >= 0; i-- {
+		nd, idx := nodes[i].nd, nodes[i].idx
+		if nd.paramNode != nil {
+			i := urlrouter.NextSeparator(path, idx)
+			remaining, params := path[i:], append(params, path[idx:i])
+			if nd, params := nd.paramNode.Find(remaining, params); nd != nil {
+				return nd, params
+			}
 		}
-	}
-	if nd.paramNode != nil {
-		i := urlrouter.NextSeparator(path, 0)
-		remaining, params := path[i:], append(params, path[:i])
-		if nd, params := nd.paramNode.Find(remaining, params); nd != nil {
-			return nd, params
+		if nd.wildcardNode != nil {
+			return nd.wildcardNode, append(params, path[idx:])
 		}
-	}
-	if nd.wildcardNode != nil {
-		return nd.wildcardNode, append(params, path)
 	}
 	return nil, nil
+}
+
+func (nd *node) findStatic(path string) (*node, []nodeIndex) {
+	var nodes []nodeIndex
+	for i := 0; i < len(path); i++ {
+		if nd = nd.mid.find(path[i]); nd == nil {
+			return nil, nodes
+		}
+		if nd.paramNode != nil || nd.wildcardNode != nil {
+			nodes = append(nodes, nodeIndex{nd, i + 1})
+		}
+	}
+	return nd, nodes
 }
 
 func (nd *node) find(c byte) *node {
