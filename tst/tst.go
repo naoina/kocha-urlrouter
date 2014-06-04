@@ -61,10 +61,17 @@ type nodeIndex struct {
 }
 
 func (nd *node) Find(path string, params []string) (*node, []string) {
-	nd, nodes := nd.findStatic(path)
-	if nd != nil {
-		return nd, params
+	var nodes []nodeIndex
+	for i := 0; i < len(path); i++ {
+		if nd = nd.mid.find(path[i]); nd == nil {
+			goto PARAMED_ROUTE
+		}
+		if nd.paramNode != nil || nd.wildcardNode != nil {
+			nodes = append(nodes, nodeIndex{nd, i + 1})
+		}
 	}
+	return nd, params
+PARAMED_ROUTE:
 	for i := len(nodes) - 1; i >= 0; i-- {
 		nd, idx := nodes[i].nd, nodes[i].idx
 		if nd.paramNode != nil {
@@ -79,19 +86,6 @@ func (nd *node) Find(path string, params []string) (*node, []string) {
 		}
 	}
 	return nil, nil
-}
-
-func (nd *node) findStatic(path string) (*node, []nodeIndex) {
-	var nodes []nodeIndex
-	for i := 0; i < len(path); i++ {
-		if nd = nd.mid.find(path[i]); nd == nil {
-			return nil, nodes
-		}
-		if nd.paramNode != nil || nd.wildcardNode != nil {
-			nodes = append(nodes, nodeIndex{nd, i + 1})
-		}
-	}
-	return nd, nodes
 }
 
 func (nd *node) find(c byte) *node {
