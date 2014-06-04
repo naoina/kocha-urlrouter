@@ -15,10 +15,9 @@ const (
 
 // baseCheck represents a BASE/CHECK node.
 type baseCheck struct {
-	base        int
-	check       int
-	hasParams   bool
-	hasWildcard bool
+	base      int
+	check     int
+	hasParams bool
 }
 
 // DoubleArray represents a URLRouter by Double-Array.
@@ -73,10 +72,20 @@ func (da *DoubleArray) Build(records []urlrouter.Record) error {
 }
 
 func (da *DoubleArray) lookup(path string, params []string) (map[int]*node, int, []string) {
-	idx, indexes, found := da.lookupStatic(path)
-	if found {
-		return da.node, idx, params
+	idx := 0
+	var indexes []int64
+	for i := 0; i < len(path); i++ {
+		next := nextIndex(da.bc[idx].base, path[i])
+		if da.bc[next].check != idx {
+			goto PARAMED_ROUTE
+		}
+		idx = next
+		if da.bc[idx].hasParams {
+			indexes = append(indexes, int64(((i+1)&0xffffffff)<<32)|int64(idx&0xffffffff))
+		}
 	}
+	return da.node, idx, params
+PARAMED_ROUTE:
 	for i := len(indexes) - 1; i >= 0; i-- {
 		curIdx, idx := int((indexes[i]>>32)&0xffffffff), int(indexes[i]&0xffffffff)
 		nd := da.node[idx]
@@ -92,20 +101,6 @@ func (da *DoubleArray) lookup(path string, params []string) (map[int]*node, int,
 		}
 	}
 	return nil, -1, nil
-}
-
-func (da *DoubleArray) lookupStatic(path string) (idx int, indexes []int64, found bool) {
-	for i := 0; i < len(path); i++ {
-		next := nextIndex(da.bc[idx].base, path[i])
-		if da.bc[next].check != idx {
-			return -1, indexes, false
-		}
-		idx = next
-		if da.bc[idx].hasParams || da.bc[idx].hasWildcard {
-			indexes = append(indexes, int64(((i+1)&0xffffffff)<<32)|int64(idx&0xffffffff))
-		}
-	}
-	return idx, nil, true
 }
 
 func (da *DoubleArray) build(srcs []*Record, idx, depth int) error {
@@ -155,7 +150,7 @@ func (da *DoubleArray) build(srcs []*Record, idx, depth int) error {
 				return err
 			}
 			da.node[idx].wildcardTree.node[0] = nd
-			da.bc[idx].hasWildcard = true
+			da.bc[idx].hasParams = true
 		default:
 			if err := da.build(records, nextIndex(base, sib.c), depth+1); err != nil {
 				return err
