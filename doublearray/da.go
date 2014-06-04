@@ -27,7 +27,7 @@ type DoubleArray struct {
 	param  *doubleArray
 }
 
-// NewDoubleArray returns a new DoubleArray with given size.
+// New returns a new DoubleArray.
 func New() *DoubleArray {
 	return &DoubleArray{
 		static: newDoubleArray(blockSize),
