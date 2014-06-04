@@ -8,7 +8,7 @@ import (
 )
 
 func Test_New(t *testing.T) {
-	da := New(1)
+	da := New()
 
 	actual := reflect.TypeOf(da)
 	expected := reflect.TypeOf(&DoubleArray{})

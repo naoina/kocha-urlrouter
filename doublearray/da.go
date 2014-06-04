@@ -4,6 +4,7 @@ package doublearray
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/naoina/kocha-urlrouter"
 )
@@ -22,13 +23,25 @@ type baseCheck struct {
 
 // DoubleArray represents a URLRouter by Double-Array.
 type DoubleArray struct {
+	static *doubleArray
+	param  *doubleArray
+}
+
+// NewDoubleArray returns a new DoubleArray with given size.
+func New() *DoubleArray {
+	return &DoubleArray{
+		static: newDoubleArray(blockSize),
+		param:  newDoubleArray(blockSize),
+	}
+}
+
+type doubleArray struct {
 	bc   []baseCheck
 	node map[int]*node
 }
 
-// NewDoubleArray returns a new DoubleArray with given size.
-func New(size int) *DoubleArray {
-	return &DoubleArray{
+func newDoubleArray(size int) *doubleArray {
+	return &doubleArray{
 		bc:   newBaseCheckArray(size),
 		node: make(map[int]*node),
 	}
@@ -45,7 +58,10 @@ func newBaseCheckArray(size int) []baseCheck {
 
 // Lookup returns result data of lookup from Double-Array routing table by given path.
 func (da *DoubleArray) Lookup(path string) (data interface{}, params []urlrouter.Param) {
-	nodes, idx, values := da.lookup(path, nil)
+	if idx, found := da.static.lookupStatic(path); found {
+		return da.static.node[idx].data, nil
+	}
+	nodes, idx, values := da.param.lookupParam(path, nil)
 	if nodes == nil {
 		return nil, nil
 	}
@@ -64,14 +80,28 @@ func (da *DoubleArray) Lookup(path string) (data interface{}, params []urlrouter
 
 // Build builds Double-Array routing table from records.
 func (da *DoubleArray) Build(records []urlrouter.Record) error {
-	sortedRecords := makeRecords(records)
-	if err := da.build(sortedRecords, 0, 0); err != nil {
+	statics, params := makeRecords(records)
+	if err := da.static.build(statics, 0, 0); err != nil {
+		return err
+	}
+	if err := da.param.build(params, 0, 0); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (da *DoubleArray) lookup(path string, params []string) (map[int]*node, int, []string) {
+func (da *doubleArray) lookupStatic(path string) (idx int, found bool) {
+	for i := 0; i < len(path); i++ {
+		next := nextIndex(da.bc[idx].base, path[i])
+		if da.bc[next].check != idx {
+			return -1, false
+		}
+		idx = next
+	}
+	return idx, true
+}
+
+func (da *doubleArray) lookupParam(path string, params []string) (map[int]*node, int, []string) {
 	idx := 0
 	var indexes []int64
 	for i := 0; i < len(path); i++ {
@@ -92,7 +122,7 @@ PARAMED_ROUTE:
 		if nd.paramTree != nil {
 			i := urlrouter.NextSeparator(path, curIdx)
 			remaining, params := path[i:], append(params, path[curIdx:i])
-			if nodes, idx, params := nd.paramTree.lookup(remaining, params); nodes != nil {
+			if nodes, idx, params := nd.paramTree.lookupParam(remaining, params); nodes != nil {
 				return nodes, idx, params
 			}
 		}
@@ -103,7 +133,7 @@ PARAMED_ROUTE:
 	return nil, -1, nil
 }
 
-func (da *DoubleArray) build(srcs []*Record, idx, depth int) error {
+func (da *doubleArray) build(srcs []*Record, idx, depth int) error {
 	base, siblings, leaf, err := da.arrange(srcs, idx, depth)
 	if err != nil {
 		return err
@@ -132,7 +162,7 @@ func (da *DoubleArray) build(srcs []*Record, idx, depth int) error {
 			if da.node[idx] == nil {
 				da.node[idx] = &node{}
 			}
-			da.node[idx].paramTree = New(blockSize)
+			da.node[idx].paramTree = newDoubleArray(blockSize)
 			da.bc[idx].hasParams = true
 			if err := da.node[idx].paramTree.build(records, 0, 0); err != nil {
 				return err
@@ -144,7 +174,7 @@ func (da *DoubleArray) build(srcs []*Record, idx, depth int) error {
 			record := records[0]
 			name := record.Key[depth+1:]
 			record.paramNames = append(record.paramNames, name)
-			da.node[idx].wildcardTree = New(0)
+			da.node[idx].wildcardTree = newDoubleArray(0)
 			nd, err := makeNode(record)
 			if err != nil {
 				return err
@@ -161,22 +191,22 @@ func (da *DoubleArray) build(srcs []*Record, idx, depth int) error {
 }
 
 // setBase sets BASE.
-func (da *DoubleArray) setBase(i, base int) {
+func (da *doubleArray) setBase(i, base int) {
 	da.bc[i].base = base
 }
 
 // setCheck sets CHECK.
-func (da *DoubleArray) setCheck(i, check int) {
+func (da *doubleArray) setCheck(i, check int) {
 	da.bc[i].check = check
 }
 
 // extendBaseCheckArray extends array of BASE/CHECK.
-func (da *DoubleArray) extendBaseCheckArray() {
+func (da *doubleArray) extendBaseCheckArray() {
 	da.bc = append(da.bc, newBaseCheckArray(blockSize)...)
 }
 
 // findEmptyIndex returns an index of unused BASE/CHECK node.
-func (da *DoubleArray) findEmptyIndex(start int) int {
+func (da *doubleArray) findEmptyIndex(start int) int {
 	i := start
 	for ; i < len(da.bc); i++ {
 		if da.bc[i].base == 0 && da.bc[i].check == -1 {
@@ -187,7 +217,7 @@ func (da *DoubleArray) findEmptyIndex(start int) int {
 }
 
 // findBase returns good BASE.
-func (da *DoubleArray) findBase(siblings []sibling, start int) (base int) {
+func (da *doubleArray) findBase(siblings []sibling, start int) (base int) {
 	idx := start + 1
 	firstChar := siblings[0].c
 	for ; idx < len(da.bc); idx = da.findEmptyIndex(idx + 1) {
@@ -209,7 +239,7 @@ func (da *DoubleArray) findBase(siblings []sibling, start int) (base int) {
 	return nextIndex(idx, firstChar)
 }
 
-func (da *DoubleArray) arrange(records []*Record, idx, depth int) (base int, siblings []sibling, leaf *Record, err error) {
+func (da *doubleArray) arrange(records []*Record, idx, depth int) (base int, siblings []sibling, leaf *Record, err error) {
 	siblings, leaf, err = makeSiblings(records, depth)
 	if err != nil {
 		return -1, nil, nil, err
@@ -227,10 +257,10 @@ type node struct {
 	data interface{}
 
 	// Tree of path parameter.
-	paramTree *DoubleArray
+	paramTree *doubleArray
 
 	// Tree of wildcard path parameter.
-	wildcardTree *DoubleArray
+	wildcardTree *doubleArray
 
 	// Names of path parameters.
 	paramNames []string
@@ -307,14 +337,19 @@ type Record struct {
 // RecordSlice represents a slice of Record for sort and implements the sort.Interface.
 type RecordSlice []*Record
 
-// makeRecords returns the records that use to build the Double-Array.
-func makeRecords(srcs []urlrouter.Record) []*Record {
-	records := make([]*Record, len(srcs))
-	for i, record := range srcs {
-		records[i] = &Record{Record: record}
+// makeRecords returns the records that use to build Double-Arrays.
+func makeRecords(srcs []urlrouter.Record) (statics, params []*Record) {
+	spChars := string([]byte{urlrouter.ParamCharacter, urlrouter.WildcardCharacter})
+	for _, record := range srcs {
+		if strings.ContainsAny(record.Key, spChars) {
+			params = append(params, &Record{Record: record})
+		} else {
+			statics = append(statics, &Record{Record: record})
+		}
 	}
-	sort.Sort(RecordSlice(records))
-	return records
+	sort.Sort(RecordSlice(statics))
+	sort.Sort(RecordSlice(params))
+	return statics, params
 }
 
 // Len implements the sort.Interface.Len.
@@ -337,7 +372,7 @@ type DoubleArrayRouter struct{}
 
 // New returns a new URLRouter that implemented by Double-Array.
 func (router *DoubleArrayRouter) New() urlrouter.URLRouter {
-	return New(blockSize)
+	return New()
 }
 
 func init() {
