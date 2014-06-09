@@ -2,6 +2,9 @@
 
 Better URL router collection for [Go](http://golang.org)
 
+**Note**:
+Kocha-urlrouter will be used as a sandbox for some implementations of a URL router. If you want a fast URL router, Please use [Denco](https://github.com/naoina/denco) instead.
+
 ## Installation
 
 Interface:
